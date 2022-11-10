@@ -13,16 +13,12 @@ namespace dae
 		 */
 		static ColorRGB Lambert(float kd, const ColorRGB& cd)
 		{
-			//todo: W3
-			assert(false && "Not Implemented Yet");
-			return {};
+			return (kd * cd) / M_PI;
 		}
 
 		static ColorRGB Lambert(const ColorRGB& kd, const ColorRGB& cd)
 		{
-			//todo: W3
-			assert(false && "Not Implemented Yet");
-			return {};
+			return (kd * cd) / M_PI;
 		}
 
 		/**
@@ -36,23 +32,32 @@ namespace dae
 		 */
 		static ColorRGB Phong(float ks, float exp, const Vector3& l, const Vector3& v, const Vector3& n)
 		{
-			//todo: W3
-			assert(false && "Not Implemented Yet");
-			return {};
+			ColorRGB phong = {};
+			Vector3 reflect = Vector3::Reflect(l, n);
+			float cosA = std::max(Vector3::Dot(reflect, v), 0.0f);
+			if (cosA > 0.f)
+			{
+				phong +=  ColorRGB{ 1.f, 1.f, 1.f } * ks * powf(cosA, exp);
+				return  phong;
+			}
+			return phong;
 		}
 
 		/**
 		 * \brief BRDF Fresnel Function >> Schlick
-		 * \param h Normalized Halfvector between View and Light directions
+		 * \ ( param h Normalized Halfvector between View and Light directions )
+		 * 
+		 * \param h is replaced with the surfaces normal param n
+		 * 
 		 * \param v Normalized View direction
 		 * \param f0 Base reflectivity of a surface based on IOR (Indices Of Refrection), this is different for Dielectrics (Non-Metal) and Conductors (Metal)
 		 * \return
 		 */
-		static ColorRGB FresnelFunction_Schlick(const Vector3& h, const Vector3& v, const ColorRGB& f0)
+		static ColorRGB FresnelFunction_Schlick(const Vector3& n, const Vector3& v, const ColorRGB& f0)
 		{
-			//todo: W3
-			assert(false && "Not Implemented Yet");
-			return {};
+			ColorRGB F = f0 + (ColorRGB{ 1.0f, 1.0f, 1.0f } - f0) * powf(1.f - Vector3::Dot(n , v), 5);
+
+			return F;
 		}
 
 		/**
@@ -64,9 +69,17 @@ namespace dae
 		 */
 		static float NormalDistribution_GGX(const Vector3& n, const Vector3& h, float roughness)
 		{
-			//todo: W3
-			assert(false && "Not Implemented Yet");
-			return {};
+			float a = roughness * roughness;
+			float a2 = a * a;
+			float NdotH = std::max(Vector3::Dot(n, h), 0.0f);
+			float NdotH2 = NdotH * NdotH;
+
+			float nom = a2;
+			float denom = (NdotH2 * (a2 - 1.0) + 1.0);
+			denom = M_PI * denom * denom;
+
+			return nom / denom;
+
 		}
 
 
@@ -74,14 +87,13 @@ namespace dae
 		 * \brief BRDF Geometry Function >> Schlick GGX (Direct Lighting + UE4 implementation - squared(roughness))
 		 * \param n Normal of the surface
 		 * \param v Normalized view direction
-		 * \param roughness Roughness of the material
+		 * \param k roughness  remapped based on direct lightning
 		 * \return BRDF Geometry Term using SchlickGGX
 		 */
-		static float GeometryFunction_SchlickGGX(const Vector3& n, const Vector3& v, float roughness)
+		static float GeometryFunction_SchlickGGX(const Vector3& n, const Vector3& v, float k)
 		{
-			//todo: W3
-			assert(false && "Not Implemented Yet");
-			return {};
+			float G = Vector3::Dot(n , v) / (Vector3::Dot(n , v) * (1.f - k) + k);
+			return G;
 		}
 
 		/**
@@ -90,13 +102,16 @@ namespace dae
 		 * \param v Normalized view direction
 		 * \param l Normalized light direction
 		 * \param roughness Roughness of the material
+		 * \param k roughness  remapped based on direct lightning
 		 * \return BRDF Geometry Term using Smith (> SchlickGGX(n,v,roughness) * SchlickGGX(n,l,roughness))
 		 */
 		static float GeometryFunction_Smith(const Vector3& n, const Vector3& v, const Vector3& l, float roughness)
 		{
-			//todo: W3
-			assert(false && "Not Implemented Yet");
-			return {};
+			float a = roughness * roughness;
+			float k = ((a + 1.0f) * (a + 1.0f)) / 8;
+
+			float Gsmith = GeometryFunction_SchlickGGX(n, -v, k) * GeometryFunction_SchlickGGX(n, l, k);
+			return Gsmith;
 		}
 
 	}
