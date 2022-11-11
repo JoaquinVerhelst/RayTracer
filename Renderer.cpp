@@ -81,10 +81,9 @@ void Renderer::Render(Scene* pScene) const
 
 					if (Vector3::Dot(closestHit.normal, shadowDir) < 0 )
 						continue;
-					
+
 					if (pScene->DoesHit(shadowRay) && m_ShadowsEnabled)
 						continue;
-					
 
 					ColorRGB E = LightUtils::GetRadiance(pScene->GetLights()[i], closestHit.origin);
 
@@ -107,6 +106,9 @@ void Renderer::Render(Scene* pScene) const
 						finalColor += E * BRDFrgb * (Vector3::Dot(closestHit.normal, shadowDir));
 						break;
 					}
+
+
+
 
 				}
 			}

@@ -87,19 +87,36 @@ namespace dae
 		std::vector<Vector3> transformedPositions{};
 		std::vector<Vector3> transformedNormals{};
 
+
+		bool firstUpdate{true};
+
+
+		bool rot = false;
+		bool trans = false;
+		bool scal = false;
+
+
+
+
+
+
+
 		void Translate(const Vector3& translation)
 		{
 			translationTransform = Matrix::CreateTranslation(translation);
+			trans = true;
 		}
 
 		void RotateY(float yaw)
 		{
 			rotationTransform = Matrix::CreateRotationY(yaw);
+			rot = true;
 		}
 
 		void Scale(const Vector3& scale)
 		{
 			scaleTransform = Matrix::CreateScale(scale);
+			scal = true;
 		}
 
 		void AppendTriangle(const Triangle& triangle, bool ignoreTransformUpdate = false)
@@ -141,26 +158,59 @@ namespace dae
 		void UpdateTransforms()
 		{
 
-			//Calculate Final Transform 
-			//const auto finalTransform = translationTransform * rotationTransform * scaleTransform;
 
-		
-			transformedNormals = normals;
-			transformedPositions = positions;
+			Matrix finalTransform = Matrix
+			{
+				{1,0,0,0}, //xAxis
+				{0,1,0,0}, //yAxis
+				{0,0,1,0}, //zAxis
+				{0,0,0,1}  //T
+			};
+
+			 
+
+			finalTransform = translationTransform * rotationTransform * scaleTransform;
 
 
+			Vector4 tempVec{};
+			Vector3 transformedVec{};
 
-			//Transform Positions (positions > transformedPositions)
-			
-			//Matrix matrix;
-			//for (size_t i = 0; i < positions.size(); i++)
-			//{
-			//	matrix = positions[i].ToPoint4();
-			//	tempPos = tempPos * finalTransform;
-			//}
+			Vector3 pos;
 
-			//Transform Normals (normals > transformedNormals)
-			//...
+			if (!firstUpdate)
+			{
+				normals = transformedNormals;
+				positions = transformedPositions;
+
+				transformedNormals.clear();
+				transformedPositions.clear();
+
+				transformedNormals.reserve(normals.size());
+				transformedPositions.reserve(positions.size());
+			}
+
+			for (size_t i = 0; i < positions.size(); i++)
+			{
+				transformedVec = finalTransform.TransformPoint(positions[i]);
+				transformedPositions.emplace_back(transformedVec);
+			}
+			for (size_t i = 0; i < normals.size(); i++)
+			{
+				transformedVec = finalTransform.TransformVector(normals[i]);
+				transformedNormals.emplace_back(transformedVec);
+			}
+
+
+			translationTransform = {};
+			rotationTransform = {};
+			scaleTransform = {};
+
+			trans = false;
+			rot = false;
+			scal = false;
+
+			firstUpdate = false;
+
 		}
 	};
 #pragma endregion

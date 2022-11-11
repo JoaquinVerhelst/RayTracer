@@ -13,12 +13,12 @@ namespace dae
 		 */
 		static ColorRGB Lambert(float kd, const ColorRGB& cd)
 		{
-			return (kd * cd) / M_PI;
+			return (kd * cd) / static_cast<float>(M_PI);
 		}
 
 		static ColorRGB Lambert(const ColorRGB& kd, const ColorRGB& cd)
 		{
-			return (kd * cd) / M_PI;
+			return (kd * cd) / static_cast<float>(M_PI);
 		}
 
 		/**
@@ -75,8 +75,8 @@ namespace dae
 			float NdotH2 = NdotH * NdotH;
 
 			float nom = a2;
-			float denom = (NdotH2 * (a2 - 1.0) + 1.0);
-			denom = M_PI * denom * denom;
+			float denom = (NdotH2 * (a2 - 1.0f) + 1.0f);
+			denom = static_cast<float>(M_PI) * denom * denom;
 
 			return nom / denom;
 

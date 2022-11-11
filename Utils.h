@@ -26,11 +26,11 @@ namespace dae
 			if (discriminant < 0)
 				return false;
 			else if (discriminant == 0)
-				t0 = -0.5 * b / a;
+				t0 = -0.5f * b / a;
 			else
 			{
 				float sqrtDiscriminant = sqrtf(discriminant);
-				float q = (b > 0) ? -0.5 * (b + sqrtDiscriminant) : -0.5 * (b - sqrtDiscriminant);
+				float q = (b > 0.0f) ? -0.5f * (b + sqrtDiscriminant) : -0.5f * (b - sqrtDiscriminant);
 
 				t0 = q / a;
 				t1 = c / q;
@@ -89,10 +89,11 @@ namespace dae
 					}
 					return true;
 				}
-				else
-					return false;
+
 				
 			}
+
+			return false;
 		}
 
 		inline bool HitTest_Plane(const Plane& plane, const Ray& ray)
@@ -142,7 +143,11 @@ namespace dae
 				return false;
 
 
+
+
 			//Cullmode
+
+
 
 
 			switch (triangle.cullMode)
@@ -155,8 +160,6 @@ namespace dae
 				if (Vector3::Dot(triangle.normal, ray.direction) < 0)
 					return false;
 				break;
-			case TriangleCullMode::NoCulling:
-				break;
 			}
 
 
@@ -167,6 +170,8 @@ namespace dae
 				hitRecord.materialIndex = triangle.materialIndex;
 				hitRecord.origin = P;
 				hitRecord.normal = triangle.normal;
+
+
 			}
 
 			return true;
@@ -181,18 +186,29 @@ namespace dae
 #pragma region TriangeMesh HitTest
 		inline bool HitTest_TriangleMesh(const TriangleMesh& mesh, const Ray& ray, HitRecord& hitRecord, bool ignoreHitRecord = false)
 		{
-			auto pos = mesh.transformedPositions;
-			auto indices = mesh.indices;
-			auto normals = mesh.transformedNormals;
+			auto& pos = mesh.transformedPositions;
 
+			
 			HitRecord tempRecord;
+			Triangle tempTriangle{};
+			tempTriangle.cullMode = mesh.cullMode;
+			tempTriangle.materialIndex = mesh.materialIndex;
 
-			for (size_t i = 0; i < indices.size(); i += 3)
+			std::vector<Triangle> triangles{};
+
+			int normalIdx{};
+
+			for (int i = 0; i < mesh.indices.size(); i += 3)
 			{
-				Triangle tempTriangle = { pos[indices[i]], pos[indices[i + 1]] , pos[indices[i + 2]], normals[i]};
+				tempTriangle.v0 = pos[mesh.indices[i]];
+				tempTriangle.v1 = pos[mesh.indices[i + 1]];
+				tempTriangle.v2 = pos[mesh.indices[i + 2]];
+				tempTriangle.normal = mesh.transformedNormals[normalIdx];
+				++normalIdx;
 
-				if (HitTest_Triangle(tempTriangle, ray, hitRecord))
+				if (HitTest_Triangle(tempTriangle, ray, hitRecord, ignoreHitRecord))
 				{
+
 					if (!tempRecord.didHit)
 						tempRecord = hitRecord;
 					else if (tempRecord.t < hitRecord.t)
@@ -202,18 +218,38 @@ namespace dae
 
 				}
 			}
+
+			
+			
 			if (!tempRecord.didHit)
 				return false;
 
 			hitRecord = tempRecord;
-			return true;
 
+			return true;
 		}
 
 		inline bool HitTest_TriangleMesh(const TriangleMesh& mesh, const Ray& ray)
 		{
-			HitRecord temp{};
-			return HitTest_TriangleMesh(mesh, ray, temp, true);
+
+			int normalIdx{};
+
+			for (int i = 0; i < mesh.indices.size(); i += 3)
+			{
+				Triangle tempTriangle = { mesh.transformedPositions[mesh.indices[i]] ,mesh.transformedPositions[mesh.indices[i + 1]]
+					,mesh.transformedPositions[mesh.indices[i + 2]], mesh.transformedNormals[normalIdx] };
+				tempTriangle.cullMode = mesh.cullMode;
+				tempTriangle.materialIndex = mesh.materialIndex;
+
+				normalIdx++;
+
+				if (HitTest_Triangle(tempTriangle, ray))
+					return true;
+				
+			}
+
+
+			return false;
 		}
 #pragma endregion
 	}
