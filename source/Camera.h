@@ -8,6 +8,9 @@
 
 
 #include <iostream>
+
+
+
 namespace dae
 {
 	struct Camera
@@ -33,8 +36,8 @@ namespace dae
 
 		Matrix cameraToWorld{};
 
-		float movementSpeed{2.f};
-		float rotationSpeed{0.5f};
+		float movementSpeed{4.f};
+		float rotationSpeed{30.f};
 
 		bool isShiftPressed = false;
 
@@ -49,7 +52,9 @@ namespace dae
 			forward.ToPoint4();
 			origin.ToPoint4();
 
-			return Matrix{ right, up, forward, origin };
+			cameraToWorld = Matrix{ right, up, forward, origin };
+
+			return cameraToWorld;
 		}
 
 		void Update(Timer* pTimer)
@@ -110,10 +115,14 @@ namespace dae
 			else if (mouseState & SDL_BUTTON(3))
 			{
 				if (mouseY >= 0)
-					totalPitch += rotationSpeed * deltaTime;
-				if (mouseY <= 0)
 					totalPitch -= rotationSpeed * deltaTime;
+				if (mouseY <= 0)
+					totalPitch += rotationSpeed * deltaTime;
 
+				if (mouseX >= 0)
+					totalYaw += rotationSpeed * deltaTime;
+				if (mouseX <= 0)
+					totalYaw -= rotationSpeed * deltaTime;
 			}
 
 

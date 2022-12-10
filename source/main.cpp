@@ -33,7 +33,7 @@ int main(int argc, char* args[])
 	const uint32_t height = 480;
 
 	SDL_Window* pWindow = SDL_CreateWindow(
-		"RayTracer - **Insert Name**",
+		"RayTracer - ** Joaquin Verhelst (2DAE15) **",
 		SDL_WINDOWPOS_UNDEFINED,
 		SDL_WINDOWPOS_UNDEFINED,
 		width, height, 0);
@@ -47,7 +47,11 @@ int main(int argc, char* args[])
 
 	//const auto pScene = new Scene_W1();
 	//const auto pScene = new Scene_W2();
-	const auto pScene = new Scene_W3();
+	//const auto pScene = new Scene_W3();
+	//const auto pScene = new Scene_W4_TestScene();
+	//const auto pScene = new Scene_W4_ReferenceScene();
+
+	const auto pScene = new Scene_W4_BunnyScene();
 
 	pScene->Initialize();
 
@@ -74,6 +78,8 @@ int main(int argc, char* args[])
 					pRenderer->ToggleShadows();
 				if (e.key.keysym.scancode == SDL_SCANCODE_F3)
 					pRenderer->CycleLightingMode();
+				if (e.key.keysym.scancode == SDL_SCANCODE_F6)
+					pTimer->StartBenchmark();
 				break;
 				
 

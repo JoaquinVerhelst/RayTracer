@@ -35,9 +35,6 @@
     <ClInclude Include="Scene.h">
       <Filter>Misc</Filter>
     </ClInclude>
-    <ClInclude Include="Timer.h">
-      <Filter>Misc</Filter>
-    </ClInclude>
     <ClInclude Include="Camera.h">
       <Filter>Misc</Filter>
     </ClInclude>
@@ -51,6 +48,9 @@
       <Filter>Misc</Filter>
     </ClInclude>
     <ClInclude Include="DataTypes.h">
+      <Filter>Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="Timer.h">
       <Filter>Misc</Filter>
     </ClInclude>
   </ItemGroup>

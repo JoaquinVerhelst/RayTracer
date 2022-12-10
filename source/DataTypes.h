@@ -84,8 +84,22 @@ namespace dae
 		Matrix translationTransform{};
 		Matrix scaleTransform{};
 
+		Vector3 minAABB;
+		Vector3 maxAABB;
+
+		Vector3 transformedminAABB;
+		Vector3 transformedMaxAABB;
+
 		std::vector<Vector3> transformedPositions{};
 		std::vector<Vector3> transformedNormals{};
+
+
+		bool firstUpdate{true};
+		bool slabTestOn{ false };
+
+
+
+
 
 		void Translate(const Vector3& translation)
 		{
@@ -106,15 +120,15 @@ namespace dae
 		{
 			int startIndex = static_cast<int>(positions.size());
 
-			positions.push_back(triangle.v0);
-			positions.push_back(triangle.v1);
-			positions.push_back(triangle.v2);
+			positions.emplace_back(triangle.v0);
+			positions.emplace_back(triangle.v1);
+			positions.emplace_back(triangle.v2);
 
-			indices.push_back(startIndex);
-			indices.push_back(++startIndex);
-			indices.push_back(++startIndex);
+			indices.emplace_back(startIndex);
+			indices.emplace_back(++startIndex);
+			indices.emplace_back(++startIndex);
 
-			normals.push_back(triangle.normal);
+			normals.emplace_back(triangle.normal);
 
 			//Not ideal, but making sure all vertices are updated
 			if(!ignoreTransformUpdate)
@@ -123,21 +137,141 @@ namespace dae
 
 		void CalculateNormals()
 		{
-			assert(false && "No Implemented Yet!");
+			Vector3 normal = {};
+			Vector3 edgeV0V1 = {};
+			Vector3 edgeV0V2 = {};
+
+			for (size_t i = 0; i < indices.size(); i += 3)
+			{
+				edgeV0V1 = positions[indices[i + 1]] - positions[indices[i]];
+				edgeV0V2 = positions[indices[i + 2]] - positions[indices[i]];
+				normal = Vector3::Cross(edgeV0V1, edgeV0V2).Normalized();
+
+				normals.emplace_back(normal);
+			}
+
 		}
 
 		void UpdateTransforms()
 		{
-			assert(false && "No Implemented Yet!");
-			//Calculate Final Transform 
-			//const auto finalTransform = ...
 
-			//Transform Positions (positions > transformedPositions)
-			//...
+			Matrix finalTransform = Matrix
+			{
+				{1,0,0,0}, //xAxis
+				{0,1,0,0}, //yAxis
+				{0,0,1,0}, //zAxis
+				{0,0,0,1}  //T
+			};
 
-			//Transform Normals (normals > transformedNormals)
-			//...
+			finalTransform = translationTransform * rotationTransform * scaleTransform;
+
+
+			Vector4 tempVec{};
+			Vector3 transformedVec{};
+
+			Vector3 pos;
+
+			if (!firstUpdate)
+			{
+				normals = transformedNormals;
+				positions = transformedPositions;
+
+				transformedNormals.clear();
+				transformedPositions.clear();
+
+				transformedNormals.reserve(normals.size());
+				transformedPositions.reserve(positions.size());
+			}
+
+
+
+			for (auto& p : positions)
+			{
+				transformedPositions.emplace_back(finalTransform.TransformPoint(p));
+			}
+
+			for (auto& n : normals)
+			{
+				transformedNormals.emplace_back(finalTransform.TransformVector(n));
+			}
+
+
+			translationTransform = {};
+			rotationTransform = {};
+			scaleTransform = {};
+
+			firstUpdate = false;
+
+			//Update AABB
+			UpdateTransformedAABB(finalTransform);
+
+
 		}
+
+		void UpdateAABB()
+		{
+			if (positions.size() > 0)
+			{
+				minAABB = positions[0];
+				maxAABB = positions[0];
+				for (auto& p : positions)
+				{
+					minAABB = Vector3::Min(p, minAABB);
+					maxAABB = Vector3::Max(p, maxAABB);
+				}
+			}
+
+
+		}
+
+		void SetSlabTest(bool on)
+		{
+			slabTestOn = on;
+		}
+
+		void UpdateTransformedAABB(const Matrix& finalTransform)
+		{
+			//AABB update: be careful -> transform the 8 vertices of the AABB
+			//and calculate new min and max
+
+
+			Vector3 tMinAABB = finalTransform.TransformPoint(minAABB);
+			Vector3 tMaxAABB = tMinAABB;
+			// xmax, ymin, zmin
+			Vector3 tAABB = finalTransform.TransformPoint(maxAABB.x, minAABB.y, minAABB.z);
+			tMinAABB = Vector3::Min(tAABB, tMinAABB);
+			tMaxAABB = Vector3::Max(tAABB, tMaxAABB);
+			// xmax, ymin, zmax
+			tAABB = finalTransform.TransformPoint(maxAABB.x, minAABB.y, maxAABB.z);
+			tMinAABB = Vector3::Min(tAABB, tMinAABB);
+			tMaxAABB = Vector3::Max(tAABB, tMaxAABB);
+			// xmin, ymin, zmax
+			tAABB = finalTransform.TransformPoint(minAABB.x, minAABB.y, maxAABB.z);
+			tMinAABB = Vector3::Min(tAABB, tMinAABB);
+			tMaxAABB = Vector3::Max(tAABB, tMaxAABB);
+			// xmin, ymax, zmin
+			tAABB = finalTransform.TransformPoint(minAABB.x, maxAABB.y, minAABB.z);
+			tMinAABB = Vector3::Min(tAABB, tMinAABB);
+			tMaxAABB = Vector3::Max(tAABB, tMaxAABB);
+			// xmax, ymax, zmin
+			tAABB = finalTransform.TransformPoint(maxAABB.x, maxAABB.y, minAABB.z);
+			tMinAABB = Vector3::Min(tAABB, tMinAABB);
+			tMaxAABB = Vector3::Max(tAABB, tMaxAABB);
+			// xmax, ymax, zmax
+			tAABB = finalTransform.TransformPoint(maxAABB.x, maxAABB.y, maxAABB.z);
+			tMinAABB = Vector3::Min(tAABB, tMinAABB);
+			tMaxAABB = Vector3::Max(tAABB, tMaxAABB);
+			// xmin, ymax, zmax
+			tAABB = finalTransform.TransformPoint(minAABB.x, maxAABB.y, maxAABB.z);
+			tMinAABB = Vector3::Min(tAABB, tMinAABB);
+			tMaxAABB = Vector3::Max(tAABB, tMaxAABB);
+
+
+			transformedminAABB = tMinAABB;
+			transformedMaxAABB = tMaxAABB;
+
+		}
+
 	};
 #pragma endregion
 #pragma region LIGHT
