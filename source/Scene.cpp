@@ -31,67 +31,34 @@ namespace dae {
 
 	void dae::Scene::GetClosestHit(const Ray& ray, HitRecord& closestHit) const
 	{
-		HitRecord tempHit{};
 
-
-		for (const TriangleMesh& Tm : m_TriangleMeshGeometries)
+		HitRecord hitRecord{};
+		for (const auto& sphere : m_SphereGeometries)
 		{
-			if (GeometryUtils::HitTest_TriangleMesh(Tm, ray, closestHit))
+			if (GeometryUtils::HitTest_Sphere(sphere, ray, hitRecord))
 			{
-				if (!tempHit.didHit)
-					tempHit = closestHit;
-				else if (tempHit.t < closestHit.t)
-					closestHit = tempHit;
-				else
-					tempHit = closestHit;
+				if (hitRecord.t < closestHit.t)
+					closestHit = hitRecord;
 			}
 		}
 
-		tempHit = closestHit;
-
-		for (const Sphere& s : m_SphereGeometries)
+		for (const auto& plane : m_PlaneGeometries)
 		{
-			if (GeometryUtils::HitTest_Sphere(s, ray, closestHit))
+			if (GeometryUtils::HitTest_Plane(plane, ray, hitRecord))
 			{
-				if (!tempHit.didHit)
-					tempHit = closestHit;
-				else if (tempHit.t < closestHit.t)
-					closestHit = tempHit;
-				else
-					tempHit = closestHit;
+				if (hitRecord.t < closestHit.t)
+					closestHit = hitRecord;
 			}
 		}
 
-		tempHit = closestHit;
-
-		for (const Plane& p : m_PlaneGeometries)
+		for (const auto& mesh : m_TriangleMeshGeometries)
 		{
-			if (GeometryUtils::HitTest_Plane(p, ray, closestHit))
+			if (GeometryUtils::HitTest_TriangleMesh(mesh, ray, hitRecord))
 			{
-				if (!tempHit.didHit)
-					tempHit = closestHit;
-				else if (tempHit.t < closestHit.t)
-					closestHit = tempHit;
-				else
-					tempHit = closestHit;
+				if (hitRecord.t < closestHit.t)
+					closestHit = hitRecord;
 			}
 		}
-
-
-		//tempHit = closestHit;
-
-		//for (const Triangle& p : m_Triangles)
-		//{
-		//	if (GeometryUtils::HitTest_Triangle(p, ray, closestHit))
-		//	{
-		//		if (!tempHit.didHit)
-		//			tempHit = closestHit;
-		//		else if (tempHit.t < closestHit.t)
-		//			closestHit = tempHit;
-		//		else
-		//			tempHit = closestHit;
-		//	}
-		//}
 
 	}
 
@@ -106,13 +73,13 @@ namespace dae {
 			}
 		}
 
-		//for (const TriangleMesh& Tm : m_TriangleMeshGeometries)
-		//{
-		//	if (GeometryUtils::HitTest_TriangleMesh(Tm, ray));
-		//	{
-		//		return true;
-		//	}
-		//} 
+		for (const TriangleMesh& Tm : m_TriangleMeshGeometries)
+		{
+			if (GeometryUtils::HitTest_TriangleMesh(Tm, ray))
+			{
+				return true;
+			}
+		} 
 
 
 		for (const Plane& p : m_PlaneGeometries)
@@ -123,19 +90,7 @@ namespace dae {
 			}
 		}
 
-
-
-		for (const Triangle& p : m_Triangles)
-		{
-			if (GeometryUtils::HitTest_Triangle(p, ray))
-			{
-				return true;
-			}
-		}
-
 		return false;
-
-
 	}
 
 #pragma region Scene Helpers
@@ -231,7 +186,7 @@ namespace dae {
 	void Scene_W2::Initialize()
 	{
 		m_Camera.origin = { 0.f, 3.f, -9.f };
-		m_Camera.fovAngle = 45.f;
+		m_Camera.SetFovAngle(45.f);
 
 		//default: Material id0 >> SolidColor Material (RED)
 		constexpr unsigned char matId_Solid_Red = 0;
@@ -274,7 +229,7 @@ namespace dae {
 	void Scene_W3::Initialize()
 	{
 		m_Camera.origin = { 0.f, 3.f, -9.f };
-		m_Camera.fovAngle = 45.f;
+		m_Camera.SetFovAngle(45.f);
 
 		const unsigned char matCT_GrayRoughMetal = AddMaterial(new Material_CookTorrence({.972f, .960f, .915f}, 1.f, 1.f));
 		const unsigned char matCT_GrayMediumMetal = AddMaterial(new Material_CookTorrence({ .972f, .960f, .915f }, 1.f, .6f));
@@ -313,7 +268,7 @@ namespace dae {
 	void Scene_W4_TestScene::Initialize()
 	{
 		m_Camera.origin = { 0.f, 1.f, -5.f };
-		m_Camera.fovAngle = 45.f;
+		m_Camera.SetFovAngle(45.f);
 
 		const unsigned char matLambert_GrayBlue = AddMaterial(new Material_Lambert({ .49f, .57f, 0.57f }, 1.f));
 		const unsigned char matLambert_White = AddMaterial(new Material_Lambert(colors::White, 1.f));
@@ -372,7 +327,7 @@ namespace dae {
 	{
 		sceneName = "Reference Scene";
 		m_Camera.origin = { 0.f, 3.f, -9.f };
-		m_Camera.fovAngle = 45.f;
+		m_Camera.SetFovAngle(45.f);
 
 		const unsigned char matCT_GrayRoughMetal = AddMaterial(new Material_CookTorrence({ .972f, .960f, .915f }, 1.f, 1.f));
 		const unsigned char matCT_GrayMediumMetal = AddMaterial(new Material_CookTorrence({ .972f, .960f, .915f }, 1.f, .6f));
@@ -407,16 +362,19 @@ namespace dae {
 		m_Meshes[0] = AddTriangleMesh(TriangleCullMode::BackFaceCulling, matLambert_White);
 		m_Meshes[0]->AppendTriangle(baseTriangle, true);
 		m_Meshes[0]->Translate({ -1.75f, 4.5f, 0.f });
+		m_Meshes[0]->UpdateAABB();
 		m_Meshes[0]->UpdateTransforms();
 
 		m_Meshes[1] = AddTriangleMesh(TriangleCullMode::FrontFaceCulling, matLambert_White);
 		m_Meshes[1]->AppendTriangle(baseTriangle, true);
 		m_Meshes[1]->Translate({ 0.f, 4.5f, 0.f });
+		m_Meshes[1]->UpdateAABB();
 		m_Meshes[1]->UpdateTransforms();
 
 		m_Meshes[2] = AddTriangleMesh(TriangleCullMode::NoCulling, matLambert_White);
 		m_Meshes[2]->AppendTriangle(baseTriangle, true);
 		m_Meshes[2]->Translate({ 1.75f, 4.5f, 0.f });
+		m_Meshes[2]->UpdateAABB();
 		m_Meshes[2]->UpdateTransforms();
 
 		//Light
@@ -429,7 +387,8 @@ namespace dae {
 	void Scene_W4_ReferenceScene::Update(Timer* pTimer)
 	{
 		Scene::Update(pTimer);
-		const auto yawAngle = (cos(pTimer->GetTotal()) + 1.0f) / 2.f * PI_2;
+		const auto yawAngle = (cosf(pTimer->GetTotal()) + 1.0f) / 2.f * PI_2;
+
 		for (const auto m : m_Meshes)
 		{
 			m->RotateY(yawAngle);
@@ -441,7 +400,7 @@ namespace dae {
 	{
 		sceneName = "Bunny Scene";
 		m_Camera.origin = { 0.f, 3.f, -9.f };
-		m_Camera.fovAngle = 45.f;
+		m_Camera.SetFovAngle( 45.f);
 
 
 		const unsigned char matLambert_GrayBlue = AddMaterial(new Material_Lambert({ .49f, 0.57f, 0.57f }, 1.f));
@@ -475,5 +434,12 @@ namespace dae {
 		AddPointLight({ 2.5f, 2.5f, -5.f }, 50.f, { .34f, .47f, .68f });
 	}
 
+	void Scene_W4_BunnyScene::Update(Timer* pTimer)
+	{
+		Scene::Update(pTimer);
+		const auto yawAngle{ (cosf(pTimer->GetTotal()) + 1.f) / 2.f * PI_2 };
+		m_pMesh->RotateY(yawAngle);
+		m_pMesh->UpdateTransforms();
+	}
 
 }

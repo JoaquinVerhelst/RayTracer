@@ -94,8 +94,7 @@ namespace dae
 		std::vector<Vector3> transformedNormals{};
 
 
-		bool firstUpdate{true};
-		bool slabTestOn{ false };
+		bool slabTestOn{ true };
 
 
 
@@ -137,6 +136,9 @@ namespace dae
 
 		void CalculateNormals()
 		{
+			normals.clear();
+			normals.reserve(indices.size() / 3);
+
 			Vector3 normal = {};
 			Vector3 edgeV0V1 = {};
 			Vector3 edgeV0V2 = {};
@@ -155,35 +157,13 @@ namespace dae
 		void UpdateTransforms()
 		{
 
-			Matrix finalTransform = Matrix
-			{
-				{1,0,0,0}, //xAxis
-				{0,1,0,0}, //yAxis
-				{0,0,1,0}, //zAxis
-				{0,0,0,1}  //T
-			};
+			transformedNormals.clear();
+			transformedPositions.clear();
 
-			finalTransform = translationTransform * rotationTransform * scaleTransform;
+			transformedNormals.reserve(normals.size());
+			transformedPositions.reserve(positions.size());
 
-
-			Vector4 tempVec{};
-			Vector3 transformedVec{};
-
-			Vector3 pos;
-
-			if (!firstUpdate)
-			{
-				normals = transformedNormals;
-				positions = transformedPositions;
-
-				transformedNormals.clear();
-				transformedPositions.clear();
-
-				transformedNormals.reserve(normals.size());
-				transformedPositions.reserve(positions.size());
-			}
-
-
+			const Matrix finalTransform{ scaleTransform * rotationTransform * translationTransform };
 
 			for (auto& p : positions)
 			{
@@ -192,15 +172,9 @@ namespace dae
 
 			for (auto& n : normals)
 			{
-				transformedNormals.emplace_back(finalTransform.TransformVector(n));
+				transformedNormals.emplace_back(finalTransform.TransformVector(n).Normalized());
 			}
 
-
-			translationTransform = {};
-			rotationTransform = {};
-			scaleTransform = {};
-
-			firstUpdate = false;
 
 			//Update AABB
 			UpdateTransformedAABB(finalTransform);

@@ -116,25 +116,34 @@ namespace dae {
 
 	Matrix Matrix::CreateRotationX(float pitch)
 	{
-		float rad = pitch * (PI / 180.f);
-		return { {1, 0, 0 }, { 0, cosf(rad), -sinf(rad)}, {0, sinf(rad) , cosf(rad)}, {0 , 0 , 0}};
+		//float rad = pitch * (PI / 180.f);
+		//return { {1, 0, 0 }, { 0, cosf(rad), -sinf(rad)}, {0, sinf(rad) , cosf(rad)}, {0 , 0 , 0}};
+
+		return { Vector3::UnitX , { 0.f, cosf(pitch), -sinf(pitch)}, {0.f, sinf(pitch) , cosf(pitch)}, {0 , 0 , 0} };
 	}
 
 	Matrix Matrix::CreateRotationY(float yaw)
 	{
-		float rad = yaw * ( PI / 180.f);
-		return { {cosf(rad), 0, -sinf(rad)}, { 0, 1 , 0}, { sinf(rad), 0 , cosf(rad)}, {0 , 0 , 0}};
+		//float rad = yaw * ( PI / 180.f);
+		//return { {cosf(rad), 0, -sinf(rad)}, Vector3::UnitY, { sinf(rad), 0 , cosf(rad)}, {0 , 0 , 0}};
+
+
+		return { {cosf(yaw), 0, -sinf(yaw)}, Vector3::UnitY, { sinf(yaw), 0 , cosf(yaw)}, {0 , 0 , 0} };
+
+
 	}
 
 	Matrix Matrix::CreateRotationZ(float roll)
 	{
-		float rad = roll * (PI / 180.f);
-		return { {cosf(rad), sinf(rad), 0 }, { -sinf(rad), cosf(rad), 0 }, {0, 0 , 1}, {0 , 0 , 0}};
+		//float rad = roll * (PI / 180.f);
+		//return { {cosf(rad), sinf(rad), 0 }, { -sinf(rad), cosf(rad), 0 }, {0, 0 , 1}, {0 , 0 , 0}};
+
+		return { {cosf(roll), sinf(roll), 0 }, { -sinf(roll), cosf(roll), 0 }, Vector3::UnitZ, {0 , 0 , 0} };
 	}
 
 	Matrix Matrix::CreateRotation(const Vector3& r)
 	{
-		return { CreateRotationX(r[0]) * CreateRotationY(r[1]) * CreateRotationZ(r[2])};
+		return { CreateRotationX(r.x) * CreateRotationY(r.y) * CreateRotationZ(r.z)};
 	}
 
 	Matrix Matrix::CreateRotation(float pitch, float yaw, float roll)

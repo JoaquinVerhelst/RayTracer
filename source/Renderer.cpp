@@ -38,9 +38,8 @@ void Renderer::Render(Scene* pScene) const
 
 	Camera& camera = pScene->GetCamera();
 	camera.CalculateCameraToWorld();
+	//camera.SetFovAngle(60.f);
 
-	const float fovAngle = camera.fovAngle * TO_RADIANS;
-	const float fov = tan(fovAngle / 2.0f);
 
 	float aspectRatio = static_cast<float>(m_Width) / static_cast<float>(m_Height);
 
@@ -76,7 +75,7 @@ void Renderer::Render(Scene* pScene) const
 				const uint32_t pixelIndexEnd = currPixelIndex + taskSize;
 				for (uint32_t pixelIndex{ currPixelIndex }; pixelIndex < pixelIndexEnd; ++pixelIndex)
 				{
-					RenderPixel(pScene, pixelIndex, fov, aspectRatio, camera, lights, materials);
+					RenderPixel(pScene, pixelIndex, aspectRatio, camera, lights, materials);
 				}
 
 			}));
@@ -96,7 +95,7 @@ void Renderer::Render(Scene* pScene) const
 	//----------------- Parallel For ---------------------------
 	//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 	concurrency::parallel_for(0u, numPixels, [=, this](int i) {
-		RenderPixel(pScene, i, fov, aspectRatio, camera, lights, materials);
+		RenderPixel(pScene, i, aspectRatio, camera, lights, materials);
 		});
 
 
@@ -106,7 +105,7 @@ void Renderer::Render(Scene* pScene) const
 	//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 	for (uint32_t i = 0; i < numPixels; ++i)
 	{
-		RenderPixel(pScene, i, fov, aspectRatio, camera, lights, materials);
+		RenderPixel(pScene, i, aspectRatio, camera, lights, materials);
 	}
 
 #endif
@@ -117,17 +116,17 @@ void Renderer::Render(Scene* pScene) const
 	SDL_UpdateWindowSurface(m_pWindow);
 }
 
-void dae::Renderer::RenderPixel(Scene* pScene, uint32_t pixelIndex, float fov, float aspectRatio, const Camera& camera, const std::vector<Light>& lights, const std::vector<Material*>& materials) const
+void dae::Renderer::RenderPixel(Scene* pScene, uint32_t pixelIndex, float aspectRatio, const Camera& camera, const std::vector<Light>& lights, const std::vector<Material*>& materials) const
 {
-	const int px = pixelIndex % m_Width;
-	const int py = pixelIndex / m_Width;
+	const int px = static_cast<int>(pixelIndex) % m_Width;
+	const int py = static_cast<int>(pixelIndex) / m_Width;
 
 	float rx = px + 0.5f;
 	float ry = py + 0.5f;
 
 
-	float x = (2 * (rx /float(m_Width)) - 1) * aspectRatio * fov;
-	float y = (1 - (2 * (ry / float(m_Height)))) * fov;
+	float x = (2.f * (rx /float(m_Width)) - 1.f) * aspectRatio * camera.fovAngle;
+	float y = (1.f - (2.f * (ry / float(m_Height)))) * camera.fovAngle;
 
 
 	Vector3 cameraSpaceDir{ x, y, 1 };
@@ -145,35 +144,42 @@ void dae::Renderer::RenderPixel(Scene* pScene, uint32_t pixelIndex, float fov, f
 
 	if (closestHit.didHit)
 	{
-		Ray shadowRay{};
-		shadowRay.min = 0.01f;
+		const Vector3 offsetOrigin = closestHit.origin + closestHit.normal * 0.001f;
 
-		Vector3 shadowDir{};
+
+		Vector3 lightDir{};
 
 		for (size_t i = 0; i < lights.size(); ++i)
 		{
-			shadowDir = LightUtils::GetDirectionToLight(lights[i], closestHit.origin);
-			shadowRay.max = shadowDir.Normalize();
-			shadowRay.origin = closestHit.origin + shadowRay.min * shadowDir;
-			shadowRay.direction = shadowDir;
+			lightDir = LightUtils::GetDirectionToLight(lights[i], offsetOrigin);
 
-			Vector3 v = closestHit.origin - viewRay.direction;
+			const float magnitude = lightDir.Normalize();
 
-			if (Vector3::Dot(closestHit.normal, shadowDir) < 0)
+			if (m_ShadowsEnabled)
+			{
+				Ray shadowRay{ offsetOrigin, lightDir, 0.0001f, magnitude };
+
+				if (pScene->DoesHit(shadowRay))
+				{
+					continue;
+				}
+			}
+
+			if (Vector3::Dot(closestHit.normal, lightDir) < 0)
 				continue;
 
-			if (pScene->DoesHit(shadowRay) && m_ShadowsEnabled)
-				continue;
 
 			ColorRGB E = LightUtils::GetRadiance(lights[i], closestHit.origin);
 
-			ColorRGB BRDFrgb = materials[closestHit.materialIndex]->Shade(closestHit, shadowDir.Normalized(), viewRay.direction.Normalized());
+			ColorRGB BRDFrgb = materials[closestHit.materialIndex]->Shade(closestHit, lightDir.Normalized(), viewRay.direction.Normalized());
+
+
 
 			switch (m_CurrentLightingMode)
 			{
 			case LightingMode::ObservedArea:
 
-				finalColor += ColorRGB{ 1.f, 1.f, 1.f } *Vector3::Dot(closestHit.normal, shadowDir);
+				finalColor += ColorRGB{ 1.f, 1.f, 1.f } *Vector3::Dot(closestHit.normal, lightDir);
 				break;
 			case LightingMode::Radiance:
 
@@ -183,7 +189,7 @@ void dae::Renderer::RenderPixel(Scene* pScene, uint32_t pixelIndex, float fov, f
 				finalColor += BRDFrgb;
 				break;
 			case LightingMode::Combined:
-				finalColor += E * BRDFrgb * (Vector3::Dot(closestHit.normal, shadowDir));
+				finalColor += E * BRDFrgb * (Vector3::Dot(closestHit.normal, lightDir));
 				break;
 			}
 		}

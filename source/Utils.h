@@ -15,7 +15,9 @@ namespace dae
 		inline bool HitTest_Sphere(const Sphere& sphere, const Ray& ray, HitRecord& hitRecord, bool ignoreHitRecord = false)
 		{
 
-			float t0{}, t1{};
+			//Analytic 
+
+			/*float t0{}, t1{};
 
 			float a = Vector3::Dot(ray.direction, ray.direction);
 			float b = Vector3::Dot(2 * ray.direction, ray.origin - sphere.origin);
@@ -56,8 +58,40 @@ namespace dae
 				hitRecord.normal = ((ray.origin - sphere.origin) + (t0 * ray.direction)) / sphere.radius;
 			}
 
-			return true;
+			return true;*/
 
+
+
+
+			const Vector3 originVec{ sphere.origin - ray.origin };
+
+			const float originVecSqrMag{ originVec.SqrMagnitude() };
+
+			const float originVecDotRayDir{ Vector3::Dot(ray.direction, originVec) };
+
+			const float originVecPerpendicular{ originVecSqrMag - Square(originVecDotRayDir) };
+
+			const float radiusSqr{ Square(sphere.radius) };
+
+			if (Square(sphere.radius) < originVecPerpendicular) return false;
+
+			const float sphereHitDistance{ sqrtf(radiusSqr - originVecPerpendicular) };
+
+			const float t{ originVecDotRayDir - sphereHitDistance };
+
+
+			if (t < ray.min || t > ray.max) return false;
+
+			if (!ignoreHitRecord)
+			{
+				hitRecord.t = t;
+				hitRecord.didHit = true;
+				hitRecord.materialIndex = sphere.materialIndex;
+				hitRecord.origin = ray.origin + t * ray.direction;
+				hitRecord.normal = ((ray.origin - sphere.origin) + (t * ray.direction)) / sphere.radius;
+			}
+
+			return true;
 		}
 
 		inline bool HitTest_Sphere(const Sphere& sphere, const Ray& ray)
@@ -104,47 +138,51 @@ namespace dae
 #pragma endregion
 #pragma region Triangle HitTest
 		//TRIANGLE HIT-TESTS
+
 		inline bool HitTest_Triangle(const Triangle& triangle, const Ray& ray, HitRecord& hitRecord, bool ignoreHitRecord = false)
 		{
 
-			const Vector3 edgeV0V1 = triangle.v1 - triangle.v0;
-			const Vector3 edgeV0V2 = triangle.v2 - triangle.v0;
 
-			float NoRaydir = Vector3::Dot(triangle.normal, ray.direction);
+			const float cullDot{ Vector3::Dot(triangle.normal, ray.direction) };
 
-			Vector3 pvec = Vector3::Cross(ray.direction, edgeV0V2);
-			float det = Vector3::Dot(pvec, edgeV0V1);
-
-
-			//Cullmode
 
 			switch (triangle.cullMode)
 			{
 			case TriangleCullMode::BackFaceCulling:
-				if (NoRaydir > 0)
+				if (cullDot > 0)
 					return false;
 				break;
 			case TriangleCullMode::FrontFaceCulling:
-				if (NoRaydir < 0)
+				if (cullDot < 0)
 					return false;
 				break;
 			}
 
+			//Möller Trumbore algorithm
+			//Source: https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm
 
-			float invDet = 1 / det;
+			const Vector3 edgeV0V1 = triangle.v1 - triangle.v0;
+			const Vector3 edgeV0V2 = triangle.v2 - triangle.v0;
 
-			Vector3 tvec = ray.origin - triangle.v0;
 
-			float u = Vector3::Dot( tvec, pvec) * invDet;
+			Vector3 pvec = Vector3::Cross(ray.direction, edgeV0V2);
+			float det = Vector3::Dot(edgeV0V1, pvec);
+			if (abs(det) < FLT_EPSILON) return false;
 
-			if (u < 0 || u > 1) return false;
 
-			Vector3 qvec = Vector3::Cross(tvec, edgeV0V1);
+			float invDet = 1.f / det;
+			Vector3 tvec =  ray.origin - triangle.v0;
+			float u = invDet * Vector3::Dot(tvec, pvec);
+			if (u < 0.f || u > 1.f) return false;
 
-			float v = Vector3::Dot(ray.direction, qvec) * invDet;
-			if (v < 0 || u + v > 1) return false;
 
-			float t = Vector3::Dot(edgeV0V2, qvec) * invDet;
+			Vector3 qvec{ Vector3::Cross(tvec, edgeV0V1) };
+			float v = invDet * Vector3::Dot(ray.direction, qvec);
+			if (v < 0.f || (u + v) > 1.f) return false;
+
+
+			float t = invDet * Vector3::Dot(edgeV0V2, qvec);
+			if (t < ray.min || t >= ray.max) return false;
 
 
 			if (!ignoreHitRecord)
@@ -195,79 +233,49 @@ namespace dae
 		inline bool HitTest_TriangleMesh(const TriangleMesh& mesh, const Ray& ray, HitRecord& hitRecord, bool ignoreHitRecord = false)
 		{
 
-			//SlabTest
+
 			if (mesh.slabTestOn)
 				if (!SlabTest_TriangleMesh(mesh, ray))
 					return false;
 
-			
 
+			HitRecord tempHit{};
+			bool didHit{};
 
-			
-			auto& pos = mesh.transformedPositions;
-
-			
-			HitRecord tempRecord;
 			Triangle tempTriangle{};
+
 			tempTriangle.cullMode = mesh.cullMode;
 			tempTriangle.materialIndex = mesh.materialIndex;
 
-			std::vector<Triangle> triangles{};
 
-			int normalIdx{};
-
-			for (int i = 0; i < mesh.indices.size(); i += 3)
+			// For each triangle
+			for (size_t triangleIdx{}; triangleIdx < mesh.indices.size(); triangleIdx += 3)
 			{
-				tempTriangle.v0 = pos[mesh.indices[i]];
-				tempTriangle.v1 = pos[mesh.indices[i + 1]];
-				tempTriangle.v2 = pos[mesh.indices[i + 2]];
-				tempTriangle.normal = mesh.transformedNormals[normalIdx];
-				++normalIdx;
+	
+				tempTriangle.v0 = mesh.transformedPositions[mesh.indices[triangleIdx]];
+				tempTriangle.v1 = mesh.transformedPositions[mesh.indices[triangleIdx + 1]];
+				tempTriangle.v2 = mesh.transformedPositions[mesh.indices[triangleIdx + 2]];
+				tempTriangle.normal = mesh.transformedNormals[triangleIdx / 3];
 
-				if (HitTest_Triangle(tempTriangle, ray, hitRecord, ignoreHitRecord))
+				if (!HitTest_Triangle(tempTriangle, ray, tempHit, ignoreHitRecord)) continue;
+	
+				if (ignoreHitRecord) return true;
+
+				if (hitRecord.t > tempHit.t)
 				{
-
-					if (!tempRecord.didHit)
-						tempRecord = hitRecord;
-					else if (tempRecord.t < hitRecord.t)
-						hitRecord = tempRecord;
-					else
-						tempRecord = hitRecord;
-
+					hitRecord = tempHit;
 				}
+
+				didHit = true;
 			}
 
-			
-			
-			if (!tempRecord.didHit)
-				return false;
-
-			hitRecord = tempRecord;
-
-			return true;
+			return didHit;
 		}
 
 		inline bool HitTest_TriangleMesh(const TriangleMesh& mesh, const Ray& ray)
 		{
-
-			int normalIdx{};
-
-			for (int i = 0; i < mesh.indices.size(); i += 3)
-			{
-				Triangle tempTriangle = { mesh.transformedPositions[mesh.indices[i]] ,mesh.transformedPositions[mesh.indices[i + 1]]
-					,mesh.transformedPositions[mesh.indices[i + 2]], mesh.transformedNormals[normalIdx] };
-				tempTriangle.cullMode = mesh.cullMode;
-				tempTriangle.materialIndex = mesh.materialIndex;
-
-				normalIdx++;
-
-				if (HitTest_Triangle(tempTriangle, ray))
-					return true;
-				
-			}
-
-
-			return false;
+			HitRecord temp{};
+			return HitTest_TriangleMesh(mesh, ray, temp, true);
 		}
 
 
